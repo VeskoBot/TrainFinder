@@ -1,0 +1,131 @@
+﻿@page "/radar"
+@page "/"
+@rendermode InteractiveServer
+
+<div class="radar-container">
+    <div class="train-sidebar @(SidebarOpen ? "sidebar-open" : "sidebar-closed")"
+         @ontouchstart="OnSidebarTouchStart"
+         @ontouchend="OnSidebarTouchEnd">
+        <div class="sidebar-header">
+            <h3>
+                Активни влакове
+                <span class="info-tooltip-wrapper">
+                    <span class="material-icons info-icon">info</span>
+                    <span class="info-tooltip">
+                        <span>Информацията се обновява на всеки 5 минути</span>
+                        <span>Следващо обновяване: @NextUpdateIn</span>
+                    </span>
+                </span>
+            </h3>
+            <span class="train-count">@TrainInfoList.Count влака</span>
+        </div>
+        <div class="search-section">
+            <input type="text" class="search-input" placeholder="Търсене на влакове..."
+                   @bind="SearchTerm" @bind:event="oninput" />
+            <div class="filter-group">
+                <span class="filter-label">Закъснение</span>
+                <div class="filter-toggles">
+                    <button class="@GetToggleClass(FilterDelayed)" @onclick="ToggleDelayed">
+                        Закъснели
+                        <span class="filter-count @(FilterDelayed ? "" : "filter-count-inactive")">@(FilterDelayed ? DelayedCount : 0)</span>
+                    </button>
+                    <button class="@GetToggleClass(FilterOnTime)" @onclick="ToggleOnTime">
+                        Навреме
+                        <span class="filter-count @(FilterOnTime ? "" : "filter-count-inactive")">@(FilterOnTime ? OnTimeCount : 0)</span>
+                    </button>
+                    <button class="sort-btn @(DelaySortMode != SortMode.None ? "sort-btn-active" : "")" disabled="@(!FilterDelayed)" @onclick="CycleSortByDelay" title="Сортирай по закъснение">
+                        @switch (DelaySortMode)
+                        {
+                            case SortMode.None:
+                                <span class="material-icons" style="font-size:1rem;">swap_vert</span>
+                                break;
+                            case SortMode.Descending:
+                                <span class="material-icons" style="font-size:1rem;">arrow_downward</span>
+                                break;
+                            case SortMode.Ascending:
+                                <span class="material-icons" style="font-size:1rem;">arrow_upward</span>
+                                break;
+                        }
+                    </button>
+                </div>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">Тип влак</span>
+                <div class="filter-toggles">
+                    <button class="@GetToggleClass(FilterFast)" @onclick="ToggleFast">
+                        Бързи
+                        <span class="filter-count @(FilterFast ? "" : "filter-count-inactive")">@(FilterFast ? FastCount : 0)</span>
+                    </button>
+                    <button class="@GetToggleClass(FilterPassenger)" @onclick="TogglePassenger">
+                        Пътнически
+                        <span class="filter-count @(FilterPassenger ? "" : "filter-count-inactive")">@(FilterPassenger ? PassengerCount : 0)</span>
+                    </button>
+                    <button class="@GetToggleClass(FilterSuburban)" @onclick="ToggleSuburban">
+                        Градски
+                        <span class="filter-count @(FilterSuburban ? "" : "filter-count-inactive")">@(FilterSuburban ? SuburbanCount : 0)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-content">
+            @if (PaginatedTrains.Any())
+            {
+                @foreach (var trainInfo in PaginatedTrains)
+                {
+                    <div class="train-card @GetCategoryCardClass(trainInfo.Category) @(SelectedTrainNumber == trainInfo.TrainNumber ? "train-card-selected" : "")" @onclick="() => SelectTrain(trainInfo)" style="cursor:pointer;">
+                        <div class="train-header">
+                            <span class="train-number">Влак #@trainInfo.TrainNumber</span>
+                            <span class="train-category @GetCategoryBadgeClass(trainInfo.Category)" title="@GetCategoryFullName(trainInfo.Category)">@GetCategoryDisplay(trainInfo.Category)</span>
+                        </div>
+                        <div class="train-details">
+                            @if (trainInfo.StartStationName != null || trainInfo.FinalStationName != null)
+                            {
+                                <div class="detail-row">
+                                    <span class="label">Маршрут:</span>
+                                    <span class="value">@(trainInfo.StartStationName ?? "—") → @(trainInfo.FinalStationName ?? "—")</span>
+                                </div>
+                            }
+                            @if (trainInfo.StationName != null)
+                            {
+                                <div class="detail-row">
+                                    <span class="label">Текуща гара:</span>
+                                    <span class="value">@trainInfo.StationName</span>
+                                </div>
+                            }
+                            <div class="detail-row">
+                                <span class="label">Закъснение:</span>
+                                <span class="value @(trainInfo.DelayMinutes > 0 ? "delay-warning" : "")">
+                                    @trainInfo.DelayMinutes мин
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else if (IsLoading)
+            {
+                <div class="loading-spinner">
+                    <img src="images/trainSpinner3.png" class="spinner-img" alt="Зареждане..." />
+                    <p>Зареждане на влакове...</p>
+                </div>
+            }
+            else
+            {
+                <div class="no-trains">
+                    <p>Няма намерени активни влакове</p>
+                </div>
+            }
+        </div>
+        @if (TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="page-btn" disabled="@(CurrentPage <= 1)" @onclick="PreviousPage">‹</button>
+                <span class="page-info">@CurrentPage / @TotalPages</span>
+                <button class="page-btn" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">›</button>
+            </div>
+        }
+    </div>
+    <button class="sidebar-tab-btn" @onclick="ToggleSidebar">›› влакове</button>
+    <div id="radar-map" class="radar-map"></div>
+</div>
+

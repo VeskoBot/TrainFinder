@@ -1,0 +1,186 @@
+# Azure Pipeline to deploy TrainFinder application infrastructure
+# Supports dev and qa environments
+
+trigger:
+- none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+parameters:
+  - name: mode
+    displayName: 'Mode'
+    type: string
+    default: 'plan'
+    values:
+      - 'plan'
+      - 'apply'
+      - 'destroy'
+  - name: environment
+    displayName: 'Environment'
+    type: string
+    default: 'dev'
+    values:
+      - 'dev'
+      - 'qa'
+
+variables:
+  - group: landing-zone
+  - group: trainfinder-infra
+
+jobs:
+####################################
+### Security Check
+####################################
+- job: Security_Check
+  displayName: 'Security Check'
+  steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET Core sdk 8.x'
+      inputs:
+        version: '8.x'
+
+    - task: MicrosoftSecurityDevOps@1
+      displayName: 'Microsoft Security DevOps'
+      inputs:
+        command: 'run'
+        tools: 'terrascan'
+
+####################################
+### Plan Infra
+####################################
+- job: 'Plan_Infra'
+  displayName: 'Plan Infra (${{ parameters.environment }})'
+  dependsOn: Security_Check
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'plan'))
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Init Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-infra)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-infra)-${{ parameters.environment }}'
+      backendAzureRmUseEntraIdForAuthentication: true
+
+  - task: TerraformTaskV4@4
+    displayName: 'Plan Terraform (${{ parameters.environment }})'
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(tfstack-infra)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: >-
+        -var-file="env/${{ parameters.environment }}.tfvars"
+        -var="secret_azuread_callback_path=$(secret-azuread-callback-path)"
+        -var="secret_azuread_client_id=$(secret-azuread-client-id)"
+        -var="secret_azuread_client_secret=$(secret-azuread-client-secret)"
+        -var="secret_azuread_instance=$(secret-azuread-instance)"
+        -var="secret_azuread_tenant_id=$(secret-azuread-tenant-id)"
+        -var="secret_connection_string=$(secret-connection-string)"
+        -var="secret_storage_connection_string=$(secret-storage-connection-string)"
+        -var="secret_smtp_username=$(secret-smtp-username)"
+        -var="secret_smtp_password=$(secret-smtp-password)"
+        -out=tfplan
+
+####################################
+### Deploy Infra
+####################################
+- job: 'Deploy_Infra'
+  displayName: 'Deploy Infra (${{ parameters.environment }})'
+  dependsOn: Security_Check
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'apply'), eq(variables['Build.SourceBranchName'], 'main'))
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Init Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-infra)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-infra)-${{ parameters.environment }}'
+      backendAzureRmUseEntraIdForAuthentication: true
+
+  - task: TerraformTaskV4@4
+    displayName: 'Deploy Terraform (${{ parameters.environment }})'
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(tfstack-infra)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: >-
+        -var-file="env/${{ parameters.environment }}.tfvars"
+        -var="secret_azuread_callback_path=$(secret-azuread-callback-path)"
+        -var="secret_azuread_client_id=$(secret-azuread-client-id)"
+        -var="secret_azuread_client_secret=$(secret-azuread-client-secret)"
+        -var="secret_azuread_instance=$(secret-azuread-instance)"
+        -var="secret_azuread_tenant_id=$(secret-azuread-tenant-id)"
+        -var="secret_connection_string=$(secret-connection-string)"
+        -var="secret_storage_connection_string=$(secret-storage-connection-string)"
+        -var="secret_smtp_username=$(secret-smtp-username)"
+        -var="secret_smtp_password=$(secret-smtp-password)"
+        -auto-approve
+
+####################################
+### Destroy Infra
+####################################
+- job: 'Destroy_Infra'
+  displayName: 'Destroy Infra (${{ parameters.environment }})'
+  dependsOn: Security_Check
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'destroy'), eq(variables['Build.SourceBranchName'], 'main'))
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Init Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-infra)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-infra)-${{ parameters.environment }}'
+      backendAzureRmUseEntraIdForAuthentication: true
+
+  - task: TerraformTaskV4@4
+    displayName: 'Destroy Terraform (${{ parameters.environment }})'
+    inputs:
+      provider: 'azurerm'
+      command: 'destroy'
+      workingDirectory: '$(tfstack-infra)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: >-
+        -var-file="env/${{ parameters.environment }}.tfvars"
+        -var="secret_azuread_callback_path=$(secret-azuread-callback-path)"
+        -var="secret_azuread_client_id=$(secret-azuread-client-id)"
+        -var="secret_azuread_client_secret=$(secret-azuread-client-secret)"
+        -var="secret_azuread_instance=$(secret-azuread-instance)"
+        -var="secret_azuread_tenant_id=$(secret-azuread-tenant-id)"
+        -var="secret_connection_string=$(secret-connection-string)"
+        -var="secret_storage_connection_string=$(secret-storage-connection-string)"
+        -auto-approve

@@ -1,0 +1,181 @@
+trigger:
+- none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+parameters:
+  - name: mode
+    displayName: 'Mode'
+    type: string
+    default: 'apply'
+    values:
+      - 'plan'
+      - 'apply'
+
+schedules:
+- cron: '0 2 * * *'
+  displayName: Daily 2am build
+  branches:
+    include:
+    - main
+  always: true
+
+variables:
+  - group: landing-zone
+
+jobs:
+####################################
+### Security Check
+####################################
+- job: Security_Check
+  displayName: 'Security Check'
+  steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET Core sdk 8.x'
+      inputs:
+        version: '8.x'
+    
+    - task: MicrosoftSecurityDevOps@1
+      displayName: 'Microsoft Security DevOps'
+      inputs:
+        command: 'run'
+        tools: 'terrascan'
+
+####################################
+### Plan Network
+####################################
+- job: 'Analyze_Infra'
+  displayName: 'Plan Network LZ'
+  dependsOn: Security_Check
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'plan'))
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Initialize Network Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-net)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-net)'
+      backendAzureRmUseEntraIdForAuthentication: true
+  
+  - task: TerraformTaskV4@4
+    displayName: 'Plan Network Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(tfstack-net)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: '-out=tfplan'
+
+- job: 'Deploy_Infra'
+  displayName: 'Deploy Infra Network'
+  dependsOn: Security_Check
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'apply'), eq(variables['Build.SourceBranchName'], 'main'))
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Initialize Network Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-net)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-net)'
+      backendAzureRmUseEntraIdForAuthentication: true
+  
+  - task: TerraformTaskV4@4
+    displayName: 'Deploy Network Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(tfstack-net)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: '-auto-approve'
+
+### Management
+
+- job: 'Analyze_Infra_Mgmt'
+  displayName: 'Analyze Infra Management'
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'plan'))
+  dependsOn: 'Analyze_Infra'
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Initialize Management Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-mgmt)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-mgmt)'
+      backendAzureRmUseEntraIdForAuthentication: true
+
+  
+  - task: TerraformTaskV4@4
+    displayName: 'Plan Management Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(tfstack-mgmt)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: '-out=tfplan'
+
+- job: 'Deploy_Infra_Mgmt'
+  displayName: 'Deploy Infra Management'
+  dependsOn: 'Deploy_Infra'
+  condition: and(succeeded(), eq('${{ parameters.mode }}', 'apply'), eq(variables['Build.SourceBranchName'], 'main'))
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform'
+    inputs:
+      terraformVersion: 'latest'
+
+  - task: TerraformTaskV4@4
+    displayName: 'Initialize Management Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(tfstack-mgmt)'
+      backendServiceArm: '$(service-connection)'
+      backendAzureRmResourceGroupName: '$(tfstate-rg)'
+      backendAzureRmStorageAccountName: '$(tfstate-sa)'
+      backendAzureRmContainerName: '$(tfstate-container)'
+      backendAzureRmKey: '$(tfstate-file-mgmt)'
+      backendAzureRmUseEntraIdForAuthentication: true
+  
+  - task: TerraformTaskV4@4
+    displayName: 'Deploy Management Terraform'
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(tfstack-mgmt)'
+      environmentServiceNameAzureRM: '$(service-connection)'
+      commandOptions: '-auto-approve'

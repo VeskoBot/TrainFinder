@@ -1,0 +1,53 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <a href="/" data-enhance-nav="false">TrainFinder</a>
+        </div>
+
+        <div class="nav-links">
+            <a class="nav-link" href="/" data-enhance-nav="false">
+                Радар
+            </a>
+            @if (!_isAuthenticated)
+            {
+                <a class="nav-link" href="/contact" data-enhance-nav="false">
+                    Свържете се с нас
+                </a>
+            }
+            @if (_isAuthenticated && _userRole == "User")
+            {
+                <a class="nav-link" href="/my-requests" data-enhance-nav="false">
+                        Моите заявки
+                    </a>
+            }
+            @if (_isAuthenticated && _userRole == "Admin")
+            {
+                <a class="nav-link" href="/requests" data-enhance-nav="false">
+                    Заявки
+                </a>
+                <a class="nav-link" href="/users" data-enhance-nav="false">
+                    Потребители
+                </a>
+            }
+        </div>
+
+        <UserMenu />
+    </nav>
+
+    <UserSync />
+
+    <main>
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+

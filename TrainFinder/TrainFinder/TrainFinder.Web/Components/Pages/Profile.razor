@@ -1,0 +1,54 @@
+@page "/profile"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Graph
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<div class="profile-container">
+    <h3>Редактиране на профил</h3>
+
+    @if (_loading)
+    {
+        <div class="loading-spinner">
+            <img src="images/trainSpinner3.png" class="spinner-img" alt="Зареждане..." />
+            <p>Зареждане...</p>
+        </div>
+    }
+    else
+    {
+        @if (_saved)
+        {
+            <div class="alert alert-success">Профилът е обновен успешно!</div>
+        }
+
+        @if (_error != null)
+        {
+            <div class="alert alert-danger">@_error</div>
+        }
+
+        <div class="profile-form">
+            <div class="form-group">
+                <label for="displayName" class="form-label">Пълно име</label>
+                <input id="displayName" class="form-input" @bind="_displayName" />
+            </div>
+
+            <div class="form-group">
+                <label for="email" class="form-label">Имейл</label>
+                <input id="email" class="form-input" value="@_email" disabled />
+            </div>
+
+            <div class="form-group">
+                <label for="mobilePhone" class="form-label">Мобилен номер</label>
+                <input id="mobilePhone" class="form-input @(_mobilePhoneError != null ? "input-error" : "")" value="@_mobilePhone" @oninput="OnMobilePhoneInput" />
+                <div class="field-error-box" style="display:@(_mobilePhoneError != null ? "block" : "none")">@_mobilePhoneError</div>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn-back" data-enhance-nav="false">Назад</a>
+                <button class="btn-save" @onclick="SaveProfile" disabled="@(_saving || _mobilePhoneError != null)" @onclick:preventDefault="false">
+                    @(_saving ? "Запазване..." : "Запази")
+                </button>
+            </div>
+        </div>
+    }
+</div>

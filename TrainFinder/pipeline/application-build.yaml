@@ -1,0 +1,200 @@
+trigger:
+  branches:
+    include:
+      - master
+
+pool:
+  vmImage: windows-latest
+
+parameters:
+  - name: deployStage
+    displayName: Deploy to Stage
+    type: string
+    default: dev
+    values:
+      - dev
+      - qa
+
+variables:
+  - group: trainfinder-dev
+  - group: trainfinder-qa
+  - name: buildConfiguration
+    value: Release
+  - name: dotnetVersion
+    value: '8.0.x'
+  - name: projectPath
+    value: 'TrainFinder/TrainFinder.Web/TrainFinder.Web.csproj'
+  - name: refreshTrainsProjectPath
+    value: 'TrainFinder/TrainFinder.WebJobs.RefreshTrains/TrainFinder.WebJobs.RefreshTrains.csproj'
+  - name: refreshTimetablesProjectPath
+    value: 'TrainFinder/TrainFinder.WebJobs.RefreshTimetables/TrainFinder.WebJobs.RefreshTimetables.csproj'
+  - name: publishOutputDir
+    value: '$(Build.ArtifactStagingDirectory)/publish'
+  - name: webAppStagingDir
+    value: '$(Build.ArtifactStagingDirectory)/webapp'
+  - name: refreshTrainsStagingDir
+    value: '$(Build.ArtifactStagingDirectory)/webjobs/RefreshTrains'
+  - name: refreshTimetablesStagingDir
+    value: '$(Build.ArtifactStagingDirectory)/webjobs/RefreshTimetables'
+
+stages:
+  - stage: Build
+    displayName: Build
+    jobs:
+      - job: Build
+        displayName: Build and Publish
+        steps:
+          - task: UseDotNet@2
+            displayName: Use .NET 8
+            inputs:
+              packageType: sdk
+              version: $(dotnetVersion)
+
+          - task: DotNetCoreCLI@2
+            displayName: Restore Web App
+            inputs:
+              command: restore
+              projects: $(projectPath)
+
+          - task: DotNetCoreCLI@2
+            displayName: Build Web App
+            inputs:
+              command: build
+              projects: $(projectPath)
+              arguments: --configuration $(buildConfiguration) --no-restore
+
+          - task: DotNetCoreCLI@2
+            displayName: Publish Web App
+            inputs:
+              command: publish
+              publishWebProjects: false
+              projects: $(projectPath)
+              arguments: --configuration $(buildConfiguration) --no-build --output $(webAppStagingDir)
+              zipAfterPublish: false
+              modifyOutputPath: false
+
+          - task: DotNetCoreCLI@2
+            displayName: Publish RefreshTrains WebJob
+            inputs:
+              command: publish
+              publishWebProjects: false
+              projects: $(refreshTrainsProjectPath)
+              arguments: --configuration $(buildConfiguration) --output $(refreshTrainsStagingDir)
+              zipAfterPublish: false
+              modifyOutputPath: false
+
+          - task: DotNetCoreCLI@2
+            displayName: Publish RefreshTimetables WebJob
+            inputs:
+              command: publish
+              publishWebProjects: false
+              projects: $(refreshTimetablesProjectPath)
+              arguments: --configuration $(buildConfiguration) --output $(refreshTimetablesStagingDir)
+              zipAfterPublish: false
+              modifyOutputPath: false
+
+          - task: CopyFiles@2
+            displayName: Stage RefreshTrains into Web App App_Data
+            inputs:
+              SourceFolder: $(refreshTrainsStagingDir)
+              Contents: '**'
+              TargetFolder: '$(webAppStagingDir)/App_Data/jobs/triggered/RefreshTrains'
+              OverWrite: true
+
+          - task: CopyFiles@2
+            displayName: Stage RefreshTimetables into Web App App_Data
+            inputs:
+              SourceFolder: $(refreshTimetablesStagingDir)
+              Contents: '**'
+              TargetFolder: '$(webAppStagingDir)/App_Data/jobs/triggered/RefreshTimetables'
+              OverWrite: true
+
+          - task: ArchiveFiles@2
+            displayName: Zip Web App with WebJobs
+            inputs:
+              rootFolderOrFile: $(webAppStagingDir)
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(publishOutputDir)/TrainFinder.Web.zip
+              replaceExistingArchive: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: Upload Artifact
+            inputs:
+              pathToPublish: $(publishOutputDir)
+              artifactName: drop
+
+  - stage: Deploy_Dev
+    displayName: Deploy to Dev
+    dependsOn: Build
+    condition: |
+      and(
+        succeeded(),
+        eq('${{ parameters.deployStage }}', 'dev')
+      )
+    jobs:
+      - deployment: Deploy
+        displayName: Deploy to Dev
+        environment: dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureAppServiceSettings@1
+                  displayName: Disable Run From Package for Dev
+                  inputs:
+                    azureSubscription: $(dev-azureSubscription)
+                    appName: $(dev-webAppName)
+                    appSettings: |
+                      [
+                        { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "0" }
+                      ]
+
+                - task: AzureRmWebAppDeployment@4
+                  displayName: Deploy Web App to Dev
+                  inputs:
+                    azureSubscription: $(dev-azureSubscription)
+                    appType: webApp
+                    WebAppName: $(dev-webAppName)
+                    Package: '$(Pipeline.Workspace)/drop/TrainFinder.Web.zip'
+                    TakeAppOfflineFlag: true
+                    enableCustomDeployment: true
+                    ExcludeFilesFromAppDataFlag: false
+
+  - stage: Deploy_QA
+    displayName: Deploy to QA
+    dependsOn: Build
+    condition: |
+      and(
+        succeeded(),
+        eq('${{ parameters.deployStage }}', 'qa')
+      )
+    jobs:
+      - deployment: Deploy
+        displayName: Deploy to QA
+        environment: qa
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureAppServiceSettings@1
+                  displayName: Disable Run From Package for QA
+                  inputs:
+                    azureSubscription: $(qa-azureSubscription)
+                    appName: $(qa-webAppName)
+                    appSettings: |
+                      [
+                        { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "0" }
+                      ]
+
+                - task: AzureRmWebAppDeployment@4
+                  displayName: Deploy Web App to QA
+                  inputs:
+                    azureSubscription: $(qa-azureSubscription)
+                    appType: webApp
+                    WebAppName: $(qa-webAppName)
+                    Package: '$(Pipeline.Workspace)/drop/TrainFinder.Web.zip'
+                    TakeAppOfflineFlag: true
+                    enableCustomDeployment: true
+                    ExcludeFilesFromAppDataFlag: false
+

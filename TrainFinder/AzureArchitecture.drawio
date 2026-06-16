@@ -1,0 +1,111 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="TrainFinder Architecture" id="trainfinder-arch">
+    <mxGraphModel dx="1434" dy="780" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="TrainFinder - Azure Architecture" style="text;html=1;fontSize=20;fontStyle=1;fillColor=none;align=center;" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="300" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Users -->
+        <mxCell id="users" value="Users" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.azure.user;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="50" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Azure DevOps -->
+        <mxCell id="devops" value="Azure DevOps&#xa;Pipeline" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.azure.azure_devops;" vertex="1" parent="1">
+          <mxGeometry x="40" y="280" width="50" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Resource Group: App -->
+        <mxCell id="rg-app" value="rg-trainfinder-dev-001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#0078D4;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="160" y="80" width="500" height="250" as="geometry" />
+        </mxCell>
+        
+        <!-- App Service -->
+        <mxCell id="webapp" value="App Service&#xa;app-trainfinder-dev&#xa;.NET 8" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.app_service;" vertex="1" parent="1">
+          <mxGeometry x="200" y="140" width="65" height="65" as="geometry" />
+        </mxCell>
+        
+        <!-- Key Vault -->
+        <mxCell id="keyvault" value="Key Vault&#xa;kv-trainfinder-dev&#xa;RBAC" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.key_vault;" vertex="1" parent="1">
+          <mxGeometry x="360" y="140" width="65" height="65" as="geometry" />
+        </mxCell>
+        
+        <!-- SQL Database -->
+        <mxCell id="sql" value="SQL Database&#xa;sqldb-trainfinder-dev&#xa;S0, geo-backup" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.sql_database;" vertex="1" parent="1">
+          <mxGeometry x="520" y="140" width="65" height="65" as="geometry" />
+        </mxCell>
+        
+        <!-- Storage Account -->
+        <mxCell id="storage" value="Storage Account&#xa;WebJobs" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.storage;" vertex="1" parent="1">
+          <mxGeometry x="360" y="250" width="65" height="65" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrows -->
+        <mxCell id="arrow1" value="HTTPS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#0078D4;strokeWidth=2;" edge="1" parent="1" source="users" target="webapp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow2" value="Managed Identity" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#0078D4;strokeWidth=2;" edge="1" parent="1" source="webapp" target="keyvault">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow3" value="Secrets" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#0078D4;strokeWidth=2;dashed=1;" edge="1" parent="1" source="keyvault" target="sql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow4" value="Terraform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=1;strokeColor=#FF6600;strokeWidth=2;" edge="1" parent="1" source="devops" target="rg-app">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Resource Group: Network -->
+        <mxCell id="rg-net" value="rg-connectivity-noprod-001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E6;strokeColor=#FF6600;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="160" y="360" width="500" height="150" as="geometry" />
+        </mxCell>
+        
+        <!-- VNet -->
+        <mxCell id="vnet" value="Virtual Network&#xa;vnet-nonprod-dev&#xa;10.1.0.0/22" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.virtual_network;" vertex="1" parent="1">
+          <mxGeometry x="200" y="400" width="65" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Subnets -->
+        <mxCell id="subnet1" value="snet-app&#xa;+ NSG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#0078D4;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="300" y="390" width="70" height="40" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="subnet2" value="snet-pe&#xa;+ NSG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#0078D4;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="390" y="390" width="70" height="40" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="subnet3" value="snet-mgmt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F2FF;strokeColor=#0078D4;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="480" y="390" width="70" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Private DNS -->
+        <mxCell id="dns" value="Private DNS Zones&#xa;blob | database | vaultcore" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;shape=mxgraph.azure.dns;" vertex="1" parent="1">
+          <mxGeometry x="580" y="400" width="50" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Resource Group: Management -->
+        <mxCell id="rg-mgmt" value="rg-management-001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6FFE6;strokeColor=#00AA00;strokeWidth=2;dashed=1;verticalAlign=top;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="160" y="530" width="250" height="100" as="geometry" />
+        </mxCell>
+        
+        <!-- Log Analytics -->
+        <mxCell id="logs" value="Log Analytics&#xa;Workspace" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.log_analytics;" vertex="1" parent="1">
+          <mxGeometry x="200" y="560" width="50" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Storage Shell -->
+        <mxCell id="storage-shell" value="Storage&#xa;Cloud Shell" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.azure.storage;" vertex="1" parent="1">
+          <mxGeometry x="320" y="560" width="50" height="50" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

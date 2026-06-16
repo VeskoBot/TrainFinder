@@ -1,0 +1,58 @@
+@page "/contact"
+@rendermode InteractiveServer
+
+<div class="contact-container">
+    @if (_submitted)
+    {
+        <div class="contact-form">
+            <h3>Свържете се с нас</h3>
+            <p class="contact-description">
+                Използвайте формата по-долу, за да изпратите запитване до администратора. След изпращане ще бъдете потърсени на посочения от вас имейл адрес.
+            </p>
+            <div class="alert alert-success">Вашето запитване е изпратено успешно! Ще се свържем с вас скоро.</div>
+        </div>
+    }
+
+    @if (!_submitted)
+    {
+        <div class="contact-form">
+            <h3>Свържете се с нас</h3>
+            <p class="contact-description">
+                Използвайте формата по-долу, за да изпратите запитване до администратора. След изпращане ще бъдете потърсени на посочения от вас имейл адрес.
+            </p>
+            <div class="form-group">
+                <label for="contactEmail" class="form-label">Имейл за обратна връзка</label>
+                <input id="contactEmail" class="form-input @(_emailError != null ? "input-error" : "")"
+                       value="@_email" @oninput="OnEmailInput"
+                       placeholder="example@mail.com" />
+                @if (_emailError != null)
+                {
+                    <div class="field-error-box">@_emailError</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label for="contactTitle" class="form-label">Заглавие</label>
+                <input id="contactTitle" class="form-input" @bind="_title" placeholder="Кратко описание на запитването" />
+            </div>
+
+            <div class="form-group">
+                <label for="contactDescription" class="form-label">Описание</label>
+                <textarea id="contactDescription" class="form-input form-textarea" @bind="_description"
+                          placeholder="Опишете подробно вашето запитване..." rows="6"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <a href="/" class="btn-back" data-enhance-nav="false">Назад</a>
+                <button class="btn-save" @onclick="SubmitAsync"
+                        disabled="@(_saving || _emailError != null || string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_description))">
+                    @(_saving ? "Изпращане..." : "Изпрати")
+                </button>
+            </div>
+            @if (_sendError != null)
+            {
+                <div class="alert alert-danger" style="margin-top:1rem;">@_sendError</div>
+            }
+        </div>
+    }
+</div>

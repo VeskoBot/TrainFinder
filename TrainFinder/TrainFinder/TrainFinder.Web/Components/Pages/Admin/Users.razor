@@ -1,0 +1,77 @@
+@page "/users"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@rendermode InteractiveServer
+
+<div class="users-container">
+    <div class="users-header">
+        <h3>Потребители</h3>
+        <span class="user-count">@_users.Count потребители</span>
+    </div>
+    <div class="search-section">
+        <input type="text" class="search-input" placeholder="Търсене по име, имейл или роля..."
+               @bind="SearchTerm" @bind:event="oninput" />
+    </div>
+    <div class="users-table-wrapper">
+        @if (_isLoading)
+        {
+            <div class="loading-spinner">
+                <img src="images/trainSpinner3.png" class="spinner-img" alt="Зареждане..." />
+                <p>Зареждане на потребители...</p>
+            </div>
+        }
+        else if (PaginatedUsers.Any())
+        {
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Име</th>
+                        <th>Имейл</th>
+                        <th>Мобилен номер</th>
+                        <th>Създаден</th>
+                        <th>Админ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in PaginatedUsers)
+                    {
+                        <tr class="@(IsSelf(user) ? "row-self" : "")">
+                            <td>
+                                @if (!IsSelf(user))
+                                {
+                                    <button class="btn-delete-user" @onclick="() => DeleteUser(user)" title="Изтрий потребител">
+                                        <span class="material-icons">delete</span>
+                                    </button>
+                                }
+                            </td>
+                            <td>@user.FullName @(IsSelf(user) ? "(Вие)" : "")</td>
+                            <td>@user.Email</td>
+                            <td>@(string.IsNullOrEmpty(user.MobileNumber) ? "—" : user.MobileNumber)</td>
+                            <td>@user.CreatedAt.ToString("dd/MM/yy HH:mm")</td>
+                            <td>
+                                <label class="toggle-switch @(IsSelf(user) ? "toggle-disabled" : "")">
+                                    <input type="checkbox" checked="@IsAdmin(user)" @onchange="(e) => ToggleAdmin(user, e)" disabled="@IsSelf(user)" />
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="no-users">
+                <p>Няма намерени потребители</p>
+            </div>
+        }
+    </div>
+    @if (TotalPages > 1)
+    {
+        <div class="pagination">
+            <button class="page-btn" disabled="@(CurrentPage <= 1)" @onclick="PreviousPage">‹</button>
+            <span class="page-info">@CurrentPage / @TotalPages</span>
+            <button class="page-btn" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">›</button>
+        </div>
+    }
+</div>

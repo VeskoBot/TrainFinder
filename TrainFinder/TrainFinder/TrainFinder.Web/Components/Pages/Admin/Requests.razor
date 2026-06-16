@@ -1,0 +1,165 @@
+@page "/requests"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@rendermode InteractiveServer
+@using TrainFinder.Data.Enums
+
+<div class="requests-container">
+    <div class="requests-sidebar">
+        <div class="sidebar-header">
+            <h3>Заявки</h3>
+            <span class="request-count">@RequestList.Count заявки</span>
+        </div>
+        <div class="search-section">
+            <input type="text" class="search-input" placeholder="Търсене на заявки..."
+                   @bind="SearchTerm" @bind:event="oninput" />
+            <div class="filter-group">
+                <span class="filter-label">Статус</span>
+                <div class="filter-toggles">
+                    <button class="@GetToggleClass(FilterPending)" @onclick="TogglePending">
+                        Изпратена
+                        <span class="filter-count @(FilterPending ? "" : "filter-count-inactive")">@(FilterPending ? PendingCount : 0)</span>
+                    </button>
+                    <button class="@GetToggleClass(FilterClosed)" @onclick="ToggleClosed">
+                        Затворена
+                        <span class="filter-count @(FilterClosed ? "" : "filter-count-inactive")">@(FilterClosed ? ClosedCount : 0)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-content">
+            @if (PaginatedRequests.Any())
+            {
+                @foreach (var request in PaginatedRequests)
+                {
+                    <div class="request-card @GetStatusCardClass(request.Status) @(SelectedRequestId == request.Id ? "request-card-selected" : "")"
+                         @onclick="() => SelectRequest(request)" style="cursor:pointer;">
+                        <div class="request-header">
+                            <span class="request-title">@request.Title</span>
+                            <span class="request-status @GetStatusBadgeClass(request.Status)">@GetStatusDisplay(request.Status)</span>
+                        </div>
+                        <div class="request-details">
+                            <div class="detail-row">
+                                <span class="label">От:</span>
+                                <span class="value">@request.User.FullName</span>
+                            </div>
+                            @if (request.Status == RequestStatus.Closed)
+                            {
+                                <div class="detail-row">
+                                    <span class="label">Затворена:</span>
+                                    <span class="value">@request.UpdatedAt.ToString("dd/MM/yy HH:mm")</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="detail-row">
+                                    <span class="label">Създадена:</span>
+                                    <span class="value">@request.CreatedAt.ToString("dd/MM/yy HH:mm")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else if (IsLoading)
+            {
+                <div class="loading-spinner">
+                    <img src="images/trainSpinner3.png" class="spinner-img" alt="Зареждане..." />
+                    <p>Зареждане на заявки...</p>
+                </div>
+            }
+            else
+            {
+                <div class="no-requests">
+                    <p>Няма намерени заявки</p>
+                </div>
+            }
+        </div>
+        @if (TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="page-btn" disabled="@(CurrentPage <= 1)" @onclick="PreviousPage">‹</button>
+                <span class="page-info">@CurrentPage / @TotalPages</span>
+                <button class="page-btn" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">›</button>
+            </div>
+        }
+    </div>
+    <div class="requests-detail">
+        @if (SelectedRequest != null && SelectedRequest.Status == RequestStatus.Pending)
+        {
+            <div class="detail-panel" style="max-width:80%;margin:0 auto;">
+                <h4>@SelectedRequest.Title</h4>
+                <span class="request-status @GetStatusBadgeClass(SelectedRequest.Status)">@GetStatusDisplay(SelectedRequest.Status)</span>
+                <div class="form-group" style="margin-top:20px;">
+                    <label class="form-label">Подател</label>
+                    <div class="detail-content">@SelectedRequest.User.FullName (@SelectedRequest.User.Email)</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Заглавие</label>
+                    <div class="detail-content">@SelectedRequest.Title</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Съдържание</label>
+                    <div class="detail-content">@SelectedRequest.Content</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Отговор</label>
+                    <textarea class="form-textarea" style="width:100%;min-height:150px;" @bind="ResponseText" placeholder="Въведете отговор..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-submit" @onclick="RespondToRequest">Отговори</button>
+                </div>
+                <div class="detail-meta">
+                    <span>Създадена: @SelectedRequest.CreatedAt.ToString("dd/MM/yy HH:mm")</span>
+                    <span>Обновена: @SelectedRequest.UpdatedAt.ToString("dd/MM/yy HH:mm")</span>
+                </div>
+            </div>
+        }
+        else if (SelectedRequest != null && SelectedRequest.Status == RequestStatus.Closed)
+        {
+            <div class="detail-panel" style="max-width:80%;margin:0 auto;">
+                <h4>@SelectedRequest.Title</h4>
+                <span class="request-status @GetStatusBadgeClass(SelectedRequest.Status)">@GetStatusDisplay(SelectedRequest.Status)</span>
+                <div class="form-group" style="margin-top:20px;">
+                    <label class="form-label">Подател</label>
+                    <div class="detail-content">@SelectedRequest.User.FullName (@SelectedRequest.User.Email)</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Заглавие</label>
+                    <div class="detail-content">@SelectedRequest.Title</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Съдържание</label>
+                    <div class="detail-content">@SelectedRequest.Content</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Отговор</label>
+                    <div class="detail-content">@(string.IsNullOrEmpty(SelectedRequest.Response) ? "Затворена без отговор" : SelectedRequest.Response)</div>
+                </div>
+                <div class="detail-meta">
+                    <span>Създадена: @SelectedRequest.CreatedAt.ToString("dd/MM/yy HH:mm")</span>
+                    <span>Обновена: @SelectedRequest.UpdatedAt.ToString("dd/MM/yy HH:mm")</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="detail-empty">
+                <p>Изберете заявка от списъка</p>
+            </div>
+        }
+    </div>
+</div>
+
+@if (_showConfirmDialog)
+{
+    <div class="confirm-overlay" @onclick="CancelRespond">
+        <div class="confirm-dialog" @onclick:stopPropagation="true">
+            <h4>Потвърждение</h4>
+            <p>@_confirmMessage</p>
+            <div class="confirm-actions">
+                <button class="btn-cancel" @onclick="CancelRespond">Отказ</button>
+                <button class="btn-submit" @onclick="ConfirmRespond">Потвърди</button>
+            </div>
+        </div>
+    </div>
+}

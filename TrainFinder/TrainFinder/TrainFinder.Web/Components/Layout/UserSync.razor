@@ -1,0 +1,60 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Identity.Web
+@using TrainFinder.Application.Interfaces
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IUserService UserService
+@inject IGraphUserService GraphUserService
+@inject NavigationManager NavigationManager
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated != true) return;
+
+            var oid = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+                      ?? authState.User.FindFirst("oid")?.Value;
+
+            if (string.IsNullOrEmpty(oid)) return;
+
+            var profile = await GraphUserService.GetUserProfileAsync();
+
+            var dbUser = await UserService.GetByExternalObjectIdAsync(oid, CancellationToken.None);
+
+            if (dbUser == null)
+            {
+                var fullName = profile?.DisplayName
+                               ?? authState.User.FindFirst("name")?.Value
+                               ?? "Unknown";
+                var email = profile?.Email
+                            ?? authState.User.FindFirst("preferred_username")?.Value
+                            ?? authState.User.FindFirst("email")?.Value
+                            ?? "";
+                var mobileNumber = profile?.MobileNumber;
+
+                dbUser = await UserService.CreateUserAsync(oid, fullName, email, mobileNumber, CancellationToken.None);
+            }
+            else if (profile != null)
+            {
+                dbUser.FullName = profile.DisplayName ?? dbUser.FullName;
+                dbUser.Email = profile.Email ?? dbUser.Email;
+                dbUser.MobileNumber = profile.MobileNumber;
+                await UserService.UpdateUserAsync(dbUser, CancellationToken.None);
+            }
+        }
+        catch (Exception ex) when (
+            ex is MicrosoftIdentityWebChallengeUserException ||
+            ex is Microsoft.Identity.Client.MsalUiRequiredException ||
+            ex.InnerException is MicrosoftIdentityWebChallengeUserException ||
+            ex.InnerException is Microsoft.Identity.Client.MsalUiRequiredException ||
+            ex.InnerException?.InnerException is Microsoft.Identity.Client.MsalUiRequiredException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+        }
+        catch
+        {
+        }
+    }
+}

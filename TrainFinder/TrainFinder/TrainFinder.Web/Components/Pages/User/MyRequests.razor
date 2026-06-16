@@ -1,0 +1,154 @@
+@page "/my-requests"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@rendermode InteractiveServer
+@using TrainFinder.Data.Enums
+
+<div class="requests-container">
+    <div class="requests-sidebar">
+        <div class="sidebar-header">
+            <h3>Моите заявки</h3>
+            <div class="sidebar-header-actions">
+                <button class="btn-new-request" @onclick="ShowNewForm">
+                    <span class="material-icons" style="font-size:1rem;">add</span> Нова
+                </button>
+                <span class="request-count">@RequestList.Count заявки</span>
+            </div>
+        </div>
+        <div class="search-section">
+            <input type="text" class="search-input" placeholder="Търсене на заявки..."
+                   @bind="SearchTerm" @bind:event="oninput" />
+            <div class="filter-group">
+                <span class="filter-label">Статус</span>
+                <div class="filter-toggles">
+                    <button class="@GetToggleClass(FilterDraft)" @onclick="ToggleDraft">
+                        Чернова
+                        <span class="filter-count @(FilterDraft ? "" : "filter-count-inactive")">@(FilterDraft ? DraftCount : 0)</span>
+                    </button>
+                    <button class="@GetToggleClass(FilterPending)" @onclick="TogglePending">
+                        Изпратена
+                        <span class="filter-count @(FilterPending ? "" : "filter-count-inactive")">@(FilterPending ? PendingCount : 0)</span>
+                    </button>
+                    <button class="@GetToggleClass(FilterClosed)" @onclick="ToggleClosed">
+                        Затворена
+                        <span class="filter-count @(FilterClosed ? "" : "filter-count-inactive")">@(FilterClosed ? ClosedCount : 0)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-content">
+            @if (PaginatedRequests.Any())
+            {
+                @foreach (var request in PaginatedRequests)
+                {
+                    <div class="request-card @GetStatusCardClass(request.Status) @(SelectedRequestId == request.Id ? "request-card-selected" : "")"
+                         @onclick="() => SelectRequest(request)" style="cursor:pointer;">
+                        <div class="request-header">
+                            <span class="request-title">@request.Title</span>
+                            <span class="request-status @GetStatusBadgeClass(request.Status)">@GetStatusDisplay(request.Status)</span>
+                        </div>
+                        <div class="request-details">
+                            @if (request.Status == RequestStatus.Closed)
+                            {
+                                <div class="detail-row">
+                                    <span class="label">Затворена:</span>
+                                    <span class="value">@request.UpdatedAt.ToString("dd/MM/yy HH:mm")</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="detail-row">
+                                    <span class="label">Създадена:</span>
+                                    <span class="value">@request.CreatedAt.ToString("dd/MM/yy HH:mm")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else if (IsLoading)
+            {
+                <div class="loading-spinner">
+                    <img src="images/trainSpinner3.png" class="spinner-img" alt="Зареждане..." />
+                    <p>Зареждане на заявки...</p>
+                </div>
+            }
+            else
+            {
+                <div class="no-requests">
+                    <p>Няма намерени заявки</p>
+                </div>
+            }
+        </div>
+        @if (TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="page-btn" disabled="@(CurrentPage <= 1)" @onclick="PreviousPage">‹</button>
+                <span class="page-info">@CurrentPage / @TotalPages</span>
+                <button class="page-btn" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">›</button>
+            </div>
+        }
+    </div>
+    <div class="requests-detail">
+        @if (ShowForm || (SelectedRequest != null && SelectedRequest.Status == RequestStatus.Draft))
+        {
+            <div class="detail-panel" style="max-width:80%;margin:0 auto;">
+                <h4>@(ShowForm ? "Нова заявка" : "Редактирай чернова")</h4>
+                @if (ShowForm)
+                {
+                    <p class="form-description">
+                        Тук можете да изпратите въпроси относно сайта или данните в него. Вашата заявка ще бъде прегледана от администратор, след което ще получите отговор.
+                    </p>
+                }
+                <EditForm Model="FormModel" OnValidSubmit="SubmitRequest">
+                    <DataAnnotationsValidator />
+                    <div class="form-group">
+                        <label class="form-label">Заглавие</label>
+                        <InputText class="form-input" style="width:100%;" @bind-Value="FormModel.Title" />
+                        <ValidationMessage For="() => FormModel.Title" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Съдържание</label>
+                        <InputTextArea class="form-textarea" style="width:100%;min-height:300px;" @bind-Value="FormModel.Content" @onfocusout="SaveDraftOnLeave" />
+                        <ValidationMessage For="() => FormModel.Content" />
+                    </div>
+                    <div class="form-actions">
+                        @if (!ShowForm && SelectedRequest != null)
+                        {
+                            <button type="button" class="btn-delete" @onclick="DeleteRequest">Изтрий заявка</button>
+                        }
+                        <button type="submit" class="btn-submit">Изпрати</button>
+                    </div>
+                </EditForm>
+            </div>
+        }
+        else if (SelectedRequest != null && (SelectedRequest.Status == RequestStatus.Pending || SelectedRequest.Status == RequestStatus.Closed))
+        {
+            <div class="detail-panel" style="max-width:80%;margin:0 auto;">
+                <h4>@SelectedRequest.Title</h4>
+                <span class="request-status @GetStatusBadgeClass(SelectedRequest.Status)">@GetStatusDisplay(SelectedRequest.Status)</span>
+                <div class="form-group" style="margin-top:20px;">
+                    <label class="form-label">Заглавие</label>
+                    <div class="detail-content">@SelectedRequest.Title</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Съдържание</label>
+                    <div class="detail-content">@SelectedRequest.Content</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Отговор</label>
+                    <div class="detail-content">@(string.IsNullOrEmpty(SelectedRequest.Response) ? "Очаква се отговор..." : SelectedRequest.Response)</div>
+                </div>
+                <div class="detail-meta">
+                    <span>Създадена: @SelectedRequest.CreatedAt.ToString("dd/MM/yy HH:mm")</span>
+                    <span>Обновена: @SelectedRequest.UpdatedAt.ToString("dd/MM/yy HH:mm")</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="detail-empty">
+                <p>Изберете заявка от списъка или създайте нова</p>
+            </div>
+        }
+    </div>
+</div>
